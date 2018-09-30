@@ -1,5 +1,5 @@
-instagram-bot-python
-====================
+instagram-follow-bot-python
+===========================
 
 Simple Instagram bot for following users and liking their posts.
 

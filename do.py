@@ -14,9 +14,9 @@ def login(username, password):
     browser.visit('https://www.instagram.com/accounts/login/')
     browser.fill('username', username)
     browser.fill('password', password + '\n')
-    screenshot()
-    # browser.is_element_present_by_text('Welcome to Instagram!', wait_time=10)
-    sleep(2)
+    if not browser.is_element_present_by_text('Watch All', wait_time=10):
+        raise Exception('Invalid username or password!')
+    # sleep(2)
 
 
 def logout():
@@ -70,73 +70,62 @@ def follow_and_like_by_tag(tag, no):
     print('following and liking {} accounts by tag {}'.format(no, tag))
     # browser.visit('https://www.instagram.com/explore/')
     browser.visit('https://www.instagram.com/explore/tags/' + tag + '/')
-    screenshot()
-    if not browser.is_element_present_by_text('Load more', wait_time=10):
+    if not browser.is_element_present_by_text('Most recent', wait_time=10):
         return
-    browser.find_by_text('Load more').first.click()
-    screenshot()
-    for _ in range(ceil(no / 10)):
-        browser.driver.execute_script(
-            'window.scrollTo(0, document.body.scrollHeight);')
-        sleep(1)
+    # for _ in range(ceil(no / 10)):
+    #    scroll_down(times=1)
     c = 0
     for a in browser.find_by_tag('a'):
         if '/p/' not in a['href']:
             continue
-        if c > no:
+        if c < 9:
+            c += 1
+            continue
+        if c > no + 9:
             break
         print(c)
-        post_id = get_post_id(a['href'])
-        screenshot()
-        a.click()
-        if 'Sorry, this page' in browser.html:
-            browser.back()
-        if not browser.is_element_present_by_text('Close', wait_time=10):
-            browser.back()
-        user_id = None
-        if browser.is_element_present_by_text('Follow'):
-            user_id = get_user_id()
-            browser.find_by_text('Follow').first.click()
-            sleep(30)
-        if browser.is_element_present_by_css('.coreSpriteHeartOpen'):
-            user_id = get_user_id()
-            browser.find_by_css('.coreSpriteHeartOpen').first.click()
-            c += 1
-        print(user_id)
-        screenshot()
-        if user_id:
-            if is_user_in_following(user_id):
-                following[user_id]['liked_posts'][post_id] = {
-                    'liked_on': datetime.now().strftime(DATE_FORMAT),
-                    'tag': tag
-                }
-            else:
+        try:
+            post_id = get_post_id(a['href'])
+            print(post_id)
+            a.click()
+            if 'Sorry, this page' in browser.html:
+                browser.back()
+            if not browser.is_element_present_by_text('Close', wait_time=10):
+                browser.back()
+            if browser.is_element_present_by_text('Follow'):
+                browser.find_by_text('Follow').first.click()
+                user_id = get_user_id()
                 following[user_id] = {
                     'followed_on': datetime.now().strftime(DATE_FORMAT),
-                    'liked_posts': {
-                        post_id: {
-                            'liked_on': datetime.now().strftime(DATE_FORMAT),
-                            'tag': tag
-                        }
+                    'liked_posts': {}
                     }
-                }
-            print(following[user_id])
-        if browser.is_element_present_by_text('Follow'):
-            browser.find_by_text('Close').first.click()
-        else:
-            screenshot()
-            browser.back()
-        # sleep(5)
+                if browser.is_element_present_by_css('.coreSpriteHeartOpen'):
+                    browser.find_by_css('.coreSpriteHeartOpen').first.click()
+                    following[user_id]['liked_posts'][post_id] = {
+                        'liked_on': datetime.now().strftime(DATE_FORMAT),
+                        'tag': tag
+                    }
+                    c += 1
+                print(following[user_id])
+                sleep(30)
+            if browser.is_element_present_by_text('Follow'):
+                browser.find_by_text('Close').first.click()
+            else:
+                browser.back()
+        except Exception as ex:
+            print(ex)
 
 
 def get_followers():
     browser.visit('https://www.instagram.com/{}/'.format(args.username))
     if not browser.is_element_present_by_text(' followers', wait_time=10):
+        print('followers element not present!')
         return
     a = browser.find_link_by_partial_text(' followers').first
     count = int(a.find_by_tag('span').first.html.replace(',', ''))
     a.click()
     if not browser.is_element_present_by_text('Followers', wait_time=10):
+        print('Followers element not present!')
         return
     sleep(1)
     ul = browser.find_by_tag('ul').last
@@ -173,9 +162,9 @@ def unfollow(unfaithful):
             user_id = get_username(li.find_by_tag('div').first.find_by_tag('div').first.find_by_tag('a').first['href'])
             if user_id in unfaithful:
                 print('unfollowing {}'.format(user_id))
-                li.find_by_tag('div').first.find_by_tag('div').last.click()
+                li.find_by_tag('div').first.find_by_tag('div').last.find_by_tag('button').first.click()
                 following[user_id]['unfollowed_on'] = datetime.now().strftime(DATE_FORMAT)
-                sleep(1)
+                sleep(30)
         lis.last.click()
         scroll_down(times=1)
 
@@ -201,8 +190,10 @@ def unfollow_unfaithful(unfaithful):
             if user_id in unfaithful:
                 print('unfollowing {}'.format(user_id))
                 li.find_by_tag('div').first.find_by_tag('div').last.click()
+                sleep(2)
+                browser.find_by_text('Unfollow').first.click()
                 following[user_id]['unfollowed_on'] = datetime.now().strftime(DATE_FORMAT)
-                sleep(1)
+                sleep(2)
         lis.last.click()
         scroll_down(times=1)
 
@@ -217,9 +208,12 @@ parser.add_argument('--no', type=int, default=10)
 parser.add_argument('--file', default='db.json')
 args = parser.parse_args()
 
+print(args)
+
 initial = []
 followers = []
 following = {}
+
 try:
     with open(args.file, 'r') as f:
         db = json.loads(f.read())
@@ -237,8 +231,7 @@ print('{} followers'.format(len(followers)))
 print('{} following'.format(len(following)))
 
 try:
-    with Browser('chrome') as browser:
-        # with Browser('chrome', headless=True) as browser:
+    with Browser('chrome', headless=False, executable_path='./chromedriver.exe') as browser:
         if args.tag:
             login(username=args.username, password=args.password)
             follow_and_like_by_tag(tag=args.tag, no=args.no)
