@@ -11,17 +11,21 @@ from splinter import Browser
 DATE_FORMAT = '%Y%m%d'
 
 def login(username, password):
+    print('logging in...')
     browser.visit('https://www.instagram.com/accounts/login/')
     browser.fill('username', username)
     browser.fill('password', password + '\n')
-    if not browser.is_element_present_by_text('Watch All', wait_time=10):
-        raise Exception('Invalid username or password!')
-    # sleep(2)
+    # if not browser.is_element_present_by_text('Watch All', wait_time=60):
+    #     raise Exception('Invalid credentials or expect element not present!')
+    sleep(60)
+    print('done')
 
 
 def logout():
+    print('logging out')
     browser.visit('https://www.instagram.com/accounts/logout/')
     # sleep(3)
+    print('done')
 
 
 def get_post_id(link):
